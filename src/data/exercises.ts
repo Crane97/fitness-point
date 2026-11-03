@@ -1,6 +1,6 @@
 /**
- * Built-in exercise catalog. To add an exercise: add an entry here and a pose in
- * `src/illustrations/poses.ts` with the same `illustrationKey` (see README).
+ * Built-in exercise catalog. To add an exercise: add an entry here and an `Art` entry with the same
+ * id in `src/illustrations/poses/upper.tsx` or `lower.tsx` (see README).
  */
 import type { Equipment, Exercise, MuscleGroup } from '@/domain/types';
 
