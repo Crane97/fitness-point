@@ -6,7 +6,13 @@
  * `reduce` never mutates its input and returns the same reference for events that
  * are not valid in the current phase.
  */
+import { LIMITS } from './routineValidation';
 import type { ExerciseLog, SetLog, WorkoutSession } from './types';
+
+const validReps = (r: number): boolean =>
+  Number.isInteger(r) && r >= LIMITS.repsMin && r <= LIMITS.repsMax;
+const validWeight = (w: number | null | undefined): boolean =>
+  w === null || w === undefined || (Number.isFinite(w) && w >= 0 && w <= LIMITS.weightMax);
 
 export interface SetPosition {
   exerciseIndex: number;
@@ -35,7 +41,8 @@ export interface MachineState {
 
 export type MachineEvent =
   | { type: 'START'; now: number }
-  | { type: 'COMPLETE_SET'; reps: number; weightKg?: number; now: number }
+  /** weightKg: null = body weight (explicit, so a missing value never erases a weight). */
+  | { type: 'COMPLETE_SET'; reps: number; weightKg: number | null; now: number }
   | { type: 'SKIP_REST'; now: number }
   | { type: 'ADJUST_REST'; deltaS: number; now: number }
   | { type: 'TICK'; now: number }
@@ -117,10 +124,11 @@ export function reduce(state: MachineState, event: MachineEvent): MachineState {
 
     case 'COMPLETE_SET': {
       if (phase.type !== 'performing') return state;
+      if (!validReps(event.reps) || !validWeight(event.weightKg)) return state;
       const done = updateSet(workout, phase, (s) => ({
         ...s,
         reps: event.reps,
-        weightKg: event.weightKg,
+        weightKg: event.weightKg ?? undefined,
         completedAt: event.now,
         skipped: false,
       }));
@@ -157,7 +165,8 @@ export function reduce(state: MachineState, event: MachineEvent): MachineState {
 
     case 'ADJUST_REST': {
       if (phase.type !== 'resting') return state;
-      const endsAt = Math.max(event.now, phase.endsAt + event.deltaS * 1000);
+      const base = event.deltaS > 0 ? Math.max(phase.endsAt, event.now) : phase.endsAt;
+      const endsAt = Math.max(event.now, base + event.deltaS * 1000);
       return {
         workout,
         phase: { ...phase, endsAt, durationS: Math.round((endsAt - phase.startedAt) / 1000) },
@@ -167,6 +176,8 @@ export function reduce(state: MachineState, event: MachineEvent): MachineState {
     case 'EDIT_SET': {
       const target = workout.exercises[event.exerciseIndex]?.sets[event.setIndex];
       if (!target || target.completedAt === undefined) return state;
+      if (event.reps !== undefined && !validReps(event.reps)) return state;
+      if (!validWeight(event.weightKg)) return state;
       return {
         phase,
         workout: updateSet(workout, event, (s) => ({
@@ -183,7 +194,7 @@ export function reduce(state: MachineState, event: MachineEvent): MachineState {
     }
 
     case 'FINISH': {
-      if (phase.type === 'finished') return state;
+      if (phase.type === 'finished' || phase.type === 'idle') return state;
       return finish(workout, event.now);
     }
   }

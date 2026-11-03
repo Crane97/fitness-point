@@ -1,4 +1,5 @@
 /** Planning helpers: duration estimates, workout creation and session suggestions. */
+import { completedSetCount } from './history';
 import type { Exercise, Organization, Routine, Session, WorkoutSession } from './types';
 
 /** Average time under load + setup per set, used only for estimates. */
@@ -70,6 +71,7 @@ export function suggestNextSession(
   let last: WorkoutSession | null = null;
   for (const w of history) {
     if (w.routineId !== routine.id || w.finishedAt === undefined) continue;
+    if (completedSetCount(w) === 0) continue;
     if (!last || w.startedAt > last.startedAt) last = w;
   }
   const idx = last ? routine.sessions.findIndex((s) => s.id === last.sessionId) : -1;

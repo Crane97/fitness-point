@@ -138,8 +138,29 @@ describe('suggestNextSession', () => {
       workout('b', 3, [exerciseLog('x', [setLog(1)])], { sessionId: 's2', finishedAt: 4 }),
     ];
     expect(suggestNextSession(routine, h)).toBe('s3');
-    const h2 = [...h, workout('c', 5, [], { sessionId: 's3', finishedAt: 6 })];
+    const h2 = [
+      ...h,
+      workout('c', 5, [exerciseLog('x', [setLog(1)])], { sessionId: 's3', finishedAt: 6 }),
+    ];
     expect(suggestNextSession(routine, h2)).toBe('s1');
+  });
+
+  it('ignores finished workouts without any completed set', () => {
+    const h = [
+      workout('a', 1, [exerciseLog('x', [setLog(1)])], { sessionId: 's1', finishedAt: 2 }),
+      workout('b', 3, [exerciseLog('x', [setLog(1, undefined, { skipped: true })])], {
+        sessionId: 's2',
+        finishedAt: 4,
+      }),
+    ];
+    expect(suggestNextSession(routine, h)).toBe('s2');
+  });
+
+  it('starts over when the last session done was deleted from the routine', () => {
+    const h = [
+      workout('a', 1, [exerciseLog('x', [setLog(1)])], { sessionId: 'gone', finishedAt: 2 }),
+    ];
+    expect(suggestNextSession(routine, h)).toBe('s1');
   });
 
   it('ignores workouts of other routines', () => {

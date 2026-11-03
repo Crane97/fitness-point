@@ -78,7 +78,7 @@ describe('sessionMachine', () => {
     s = reduce(s, { type: 'SKIP_REST', now: T0 });
     s = reduce(s, { type: 'COMPLETE_SET', weightKg: 60, reps: 8, now: T0 });
     s = reduce(s, { type: 'SKIP_REST', now: T0 });
-    s = reduce(s, { type: 'COMPLETE_SET', reps: 12, now: T0 + 5000 });
+    s = reduce(s, { type: 'COMPLETE_SET', reps: 12, weightKg: null, now: T0 + 5000 });
     expect(s.phase).toEqual({ type: 'finished', finishedAt: T0 + 5000 });
     expect(s.workout.finishedAt).toBe(T0 + 5000);
     expect(s.workout.exercises[1]!.sets[0]).toMatchObject({ reps: 12, weightKg: undefined });
@@ -91,7 +91,7 @@ describe('sessionMachine', () => {
       }),
     ]);
     let s = reduce(createMachine(w), { type: 'START', now: T0 });
-    s = reduce(s, { type: 'COMPLETE_SET', reps: 5, now: T0 });
+    s = reduce(s, { type: 'COMPLETE_SET', reps: 5, weightKg: null, now: T0 });
     expect(s.phase).toEqual({ type: 'performing', exerciseIndex: 0, setIndex: 1 });
   });
 
@@ -139,7 +139,7 @@ describe('sessionMachine', () => {
 
   it('ignores events that are invalid for the current phase', () => {
     const idle = createMachine(twoExerciseWorkout());
-    expect(reduce(idle, { type: 'COMPLETE_SET', reps: 1, now: T0 })).toBe(idle);
+    expect(reduce(idle, { type: 'COMPLETE_SET', reps: 1, weightKg: null, now: T0 })).toBe(idle);
     const s = started();
     expect(reduce(s, { type: 'SKIP_REST', now: T0 })).toBe(s);
     expect(reduce(s, { type: 'START', now: T0 })).toBe(s);
@@ -150,6 +150,65 @@ describe('sessionMachine', () => {
     const snapshot = JSON.stringify(s);
     reduce(s, { type: 'COMPLETE_SET', weightKg: 100, reps: 1, now: T0 });
     expect(JSON.stringify(s)).toBe(snapshot);
+  });
+
+  it('rejects invalid reps or weights', () => {
+    const s = started();
+    for (const bad of [0, -3, Number.NaN, 7.5, 101]) {
+      expect(reduce(s, { type: 'COMPLETE_SET', reps: bad, weightKg: 60, now: T0 })).toBe(s);
+    }
+    expect(reduce(s, { type: 'COMPLETE_SET', reps: 8, weightKg: -1, now: T0 })).toBe(s);
+    expect(reduce(s, { type: 'COMPLETE_SET', reps: 8, weightKg: Number.NaN, now: T0 })).toBe(s);
+  });
+
+  it('ADJUST_REST +15 s after the rest already expired counts from now', () => {
+    const s = reduce(started(), { type: 'COMPLETE_SET', weightKg: 60, reps: 8, now: T0 });
+    const late = T0 + 110_000; // 20 s after endsAt, no TICK yet
+    const adj = reduce(s, { type: 'ADJUST_REST', deltaS: 15, now: late });
+    expect(adj.phase).toMatchObject({ type: 'resting', endsAt: late + 15_000 });
+  });
+
+  it('EDIT_SET with weightKg null switches to body weight', () => {
+    const s = reduce(started(), { type: 'COMPLETE_SET', weightKg: 60, reps: 8, now: T0 });
+    const e = reduce(s, { type: 'EDIT_SET', exerciseIndex: 0, setIndex: 0, weightKg: null });
+    expect(e.workout.exercises[0]!.sets[0]!.weightKg).toBeUndefined();
+  });
+
+  it('FINISH is ignored while idle but works while resting', () => {
+    const idle = createMachine(twoExerciseWorkout());
+    expect(reduce(idle, { type: 'FINISH', now: T0 })).toBe(idle);
+    const resting = reduce(started(), { type: 'COMPLETE_SET', weightKg: 60, reps: 8, now: T0 });
+    expect(reduce(resting, { type: 'FINISH', now: T0 + 1 }).phase.type).toBe('finished');
+  });
+
+  it('skips exercises without sets wherever they are', () => {
+    const w = workout('w', 0, [
+      exerciseLog('empty-a', []),
+      exerciseLog('a', [setLog(5, undefined, pending)], { after: 30 }),
+      exerciseLog('empty-b', []),
+      exerciseLog('b', [setLog(5, undefined, pending)]),
+      exerciseLog('empty-c', []),
+    ]);
+    let s = reduce(createMachine(w), { type: 'START', now: T0 });
+    expect(s.phase).toEqual({ type: 'performing', exerciseIndex: 1, setIndex: 0 });
+    s = reduce(s, { type: 'COMPLETE_SET', reps: 5, weightKg: null, now: T0 });
+    expect(s.phase).toMatchObject({
+      kind: 'afterExercise',
+      next: { exerciseIndex: 3, setIndex: 0 },
+    });
+    s = reduce(s, { type: 'SKIP_REST', now: T0 });
+    s = reduce(s, { type: 'COMPLETE_SET', reps: 5, weightKg: null, now: T0 });
+    expect(s.phase.type).toBe('finished');
+  });
+
+  it('a workout with no sets at all finishes immediately on START', () => {
+    const w = workout('w', 0, [exerciseLog('x', [])]);
+    expect(reduce(createMachine(w), { type: 'START', now: T0 }).phase.type).toBe('finished');
+  });
+
+  it('TICK is ignored when not resting', () => {
+    const s = started();
+    expect(reduce(s, { type: 'TICK', now: T0 + 999_999 })).toBe(s);
   });
 
   it('nextPosition / currentExercise helpers', () => {

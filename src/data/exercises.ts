@@ -104,7 +104,11 @@ export function genericIllustrationKey(muscle: MuscleGroup): string {
 
 /** Case- and accent-insensitive search on name, muscle and equipment labels. */
 export function normalize(s: string): string {
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 }
 
 export function filterExercises(
