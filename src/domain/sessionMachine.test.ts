@@ -211,6 +211,20 @@ describe('sessionMachine', () => {
     expect(reduce(s, { type: 'TICK', now: T0 + 999_999 })).toBe(s);
   });
 
+  it('COMPLETE_SET for a stale position is ignored (double tap on HECHO)', () => {
+    const w = workout('w', 0, [
+      exerciseLog('a', [setLog(5, undefined, pending), setLog(5, undefined, pending)], {
+        between: 0,
+      }),
+    ]);
+    let s = reduce(createMachine(w), { type: 'START', now: T0 });
+    const at = { exerciseIndex: 0, setIndex: 0 };
+    s = reduce(s, { type: 'COMPLETE_SET', reps: 5, weightKg: null, now: T0, at });
+    const again = reduce(s, { type: 'COMPLETE_SET', reps: 5, weightKg: null, now: T0, at });
+    expect(again).toBe(s);
+    expect(s.phase).toEqual({ type: 'performing', exerciseIndex: 0, setIndex: 1 });
+  });
+
   it('nextPosition / currentExercise helpers', () => {
     const w = twoExerciseWorkout();
     expect(nextPosition(w, { exerciseIndex: 0, setIndex: 0 })).toEqual({

@@ -42,7 +42,14 @@ export interface MachineState {
 export type MachineEvent =
   | { type: 'START'; now: number }
   /** weightKg: null = body weight (explicit, so a missing value never erases a weight). */
-  | { type: 'COMPLETE_SET'; reps: number; weightKg: number | null; now: number }
+  | {
+      type: 'COMPLETE_SET';
+      reps: number;
+      weightKg: number | null;
+      now: number;
+      /** Set the user saw when tapping HECHO; a stale value (double tap) is ignored. */
+      at?: SetPosition;
+    }
   | { type: 'SKIP_REST'; now: number }
   | { type: 'ADJUST_REST'; deltaS: number; now: number }
   | { type: 'TICK'; now: number }
@@ -125,6 +132,12 @@ export function reduce(state: MachineState, event: MachineEvent): MachineState {
     case 'COMPLETE_SET': {
       if (phase.type !== 'performing') return state;
       if (!validReps(event.reps) || !validWeight(event.weightKg)) return state;
+      if (
+        event.at &&
+        (event.at.exerciseIndex !== phase.exerciseIndex || event.at.setIndex !== phase.setIndex)
+      ) {
+        return state;
+      }
       const done = updateSet(workout, phase, (s) => ({
         ...s,
         reps: event.reps,
