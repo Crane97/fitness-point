@@ -63,6 +63,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingHorizontal: space.md,
     paddingBottom: space.sm,
-    marginTop: -space.xl,
+    marginTop: -space.md,
   },
 });
