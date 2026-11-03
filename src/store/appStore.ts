@@ -20,7 +20,7 @@ import { createMachine, reduce, type MachineEvent, type Phase } from '@/domain/s
 import type { BodyMetric, Exercise, Organization, Routine } from '@/domain/types';
 import { now } from '@/services/clock';
 
-import { sanitizePersisted, type ActiveWorkout, type PersistedState } from './schema';
+import { sanitizePersisted, type PersistedState } from './schema';
 
 export const STORAGE_KEY = 'fitness-point/v1';
 

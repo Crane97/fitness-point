@@ -15,6 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { useHydration } from '@/store';
 import { colors } from '@/theme';
 
 export default function RootLayout() {
@@ -27,7 +28,8 @@ export default function RootLayout() {
     InterTight_700Bold,
     InterTight_800ExtraBold,
   });
-  if (!loaded) return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
+  const hydrated = useHydration((h) => h.hydrated);
+  if (!loaded || !hydrated) return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />

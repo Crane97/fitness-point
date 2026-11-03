@@ -48,13 +48,12 @@ function base(now: number): PersistedState {
  */
 function playChest(state: PersistedState, now: number, sets: number, bump = 0): MachineState {
   const routine = state.routines.find((r) => r.id === 'r-grupos')!;
-  const startedAt = now - 46 * MIN;
-  let m = createMachine(
-    createWorkout(routine, 's-pecho', CATALOG, { id: 'w-demo', now: startedAt }),
-  );
-  m = reduce(m, { type: 'START', now: startedAt });
-  // Spread the completed sets evenly up to a bit before `now`.
-  const step = Math.floor((40 * MIN) / Math.max(1, sets));
+  const workout = createWorkout(routine, 's-pecho', CATALOG, { id: 'w-demo', now: 0 });
+  const total = workout.exercises.reduce((n, e) => n + e.sets.length, 0);
+  // ~2,6 min per set (work + rest), ending just before `now`.
+  const step = Math.round(2.6 * MIN);
+  const startedAt = now - Math.min(sets, total) * step - 30_000;
+  let m = reduce(createMachine(workout), { type: 'START', now: startedAt });
   let t = startedAt;
   for (let i = 0; i < sets && m.phase.type === 'performing'; i++) {
     const p = m.workout.exercises[m.phase.exerciseIndex]!.sets[m.phase.setIndex]!;

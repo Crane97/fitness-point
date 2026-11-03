@@ -3,6 +3,7 @@
  * history with progressive overload and daily body metrics. Everything is derived from
  * `now`, so the same `now` always yields the same state.
  */
+import { dateKey } from '@/domain/dates';
 import { createWorkout } from '@/domain/planning';
 import { createMachine, reduce, type MachineState } from '@/domain/sessionMachine';
 import type {
@@ -196,13 +197,6 @@ export function demoHistory(now: number, routines: Routine[]): WorkoutSession[] 
   return out.sort((a, b) => a.startedAt - b.startedAt);
 }
 
-export function toDateKey(t: number): string {
-  const d = new Date(t);
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${m}-${day}`;
-}
-
 export function demoBodyMetrics(now: number): BodyMetric[] {
   const rand = rng(7);
   const today = startOfDay(now);
@@ -211,7 +205,7 @@ export function demoBodyMetrics(now: number): BodyMetric[] {
     const trend = 80.2 - ((28 - daysAgo) / 28) * 1.6;
     const weightKg = Math.round((trend + (rand() - 0.5) * 0.6) * 10) / 10;
     out.push({
-      date: toDateKey(today - daysAgo * DAY),
+      date: dateKey(today - daysAgo * DAY),
       weightKg,
       ...(daysAgo === 28 ? { heightCm: 178 } : {}),
     });
