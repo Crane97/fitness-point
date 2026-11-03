@@ -12,7 +12,10 @@ const pending = { completedAt: undefined };
 
 function twoExerciseWorkout() {
   return workout('w1', 0, [
-    exerciseLog('press-banca', [setLog(8, 60, pending), setLog(8, 60, pending)], { between: 90, after: 120 }),
+    exerciseLog('press-banca', [setLog(8, 60, pending), setLog(8, 60, pending)], {
+      between: 90,
+      after: 120,
+    }),
     exerciseLog('fondos', [setLog(10, undefined, pending)], { between: 60, after: 0 }),
   ]);
 }
@@ -82,7 +85,11 @@ describe('sessionMachine', () => {
   });
 
   it('skips the rest phase entirely when the rest is 0 s', () => {
-    const w = workout('w', 0, [exerciseLog('a', [setLog(5, undefined, pending), setLog(5, undefined, pending)], { between: 0 })]);
+    const w = workout('w', 0, [
+      exerciseLog('a', [setLog(5, undefined, pending), setLog(5, undefined, pending)], {
+        between: 0,
+      }),
+    ]);
     let s = reduce(createMachine(w), { type: 'START', now: T0 });
     s = reduce(s, { type: 'COMPLETE_SET', reps: 5, now: T0 });
     expect(s.phase).toEqual({ type: 'performing', exerciseIndex: 0, setIndex: 1 });
