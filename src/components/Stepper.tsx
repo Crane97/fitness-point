@@ -92,7 +92,12 @@ export function Stepper({
           <TextInput
             autoFocus
             value={text}
-            onChangeText={setText}
+            onChangeText={(v) => {
+              setText(v);
+              // Commit valid values while typing: tapping HECHO may not blur the input (iOS).
+              const n = parseNumber(v);
+              if (n !== undefined && n >= min && n <= max && n !== 0) onChange(round(n));
+            }}
             onBlur={commit}
             onSubmitEditing={commit}
             keyboardType="decimal-pad"

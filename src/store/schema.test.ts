@@ -57,4 +57,22 @@ describe('sanitizePersisted', () => {
     expect(sanitizePersisted({ active: { machine: { phase: { type: 'resting' } } } })).toEqual({});
     expect(sanitizePersisted({ active: null })).toEqual({ active: null });
   });
+
+  it('drops an active workout whose position points outside the workout', () => {
+    const workout = {
+      id: 'w',
+      routineId: 'r',
+      routineName: 'R',
+      sessionId: 's',
+      sessionName: 'S',
+      startedAt: 0,
+      exercises: [],
+    };
+    const active = {
+      machine: { workout, phase: { type: 'performing', exerciseIndex: 3, setIndex: 0 } },
+      transitionTo: null,
+      notificationId: null,
+    };
+    expect(sanitizePersisted({ active })).toEqual({});
+  });
 });

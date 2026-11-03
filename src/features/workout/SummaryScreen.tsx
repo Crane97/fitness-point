@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import type { ReactElement } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -36,10 +35,7 @@ export function SummaryScreen(): ReactElement | null {
           label="Guardar y salir"
           variant="primary"
           size="hero"
-          onPress={() => {
-            save();
-            router.replace('/');
-          }}
+          onPress={save /* the session controller navigates home */}
           testID="save-exit"
         />
       }

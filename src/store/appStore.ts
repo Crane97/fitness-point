@@ -19,6 +19,7 @@ import {
 import { createMachine, reduce, type MachineEvent, type Phase } from '@/domain/sessionMachine';
 import type { BodyMetric, Exercise, Organization, Routine } from '@/domain/types';
 import { now } from '@/services/clock';
+import { cancelRestEnd } from '@/services/notifications';
 
 import { sanitizePersisted, type PersistedState } from './schema';
 
@@ -86,6 +87,11 @@ export function transitionTarget(prev: Phase, next: Phase, pending: number | nul
   return pending;
 }
 
+/** Cancels the pending native rest notification (stored as `${endsAt}:${id}`). */
+function cancelPending(notificationId: string | null | undefined): void {
+  if (notificationId) void cancelRestEnd(notificationId.split(':')[1] ?? null);
+}
+
 export function createAppStore(storage: StateStorage) {
   return create<AppState>()(
     persist(
@@ -94,7 +100,8 @@ export function createAppStore(storage: StateStorage) {
 
         openDraft: (sourceId, org = 'muscle') => {
           const { draft, routines } = get();
-          if (draft && draft.sourceId === sourceId && sourceId !== null) return;
+          // Re-opening the same draft (or «Nueva rutina» with a new draft pending) resumes it.
+          if (draft && draft.sourceId === sourceId) return;
           if (sourceId === null) {
             set({ draft: { routine: newRoutine(org, { id: uid, now: now() }), sourceId: null } });
             return;
@@ -164,6 +171,7 @@ export function createAppStore(storage: StateStorage) {
           const catalog = Object.fromEntries(
             [...BUILT_IN_EXERCISES, ...customExercises].map((e) => [e.id, e]),
           );
+          cancelPending(get().active?.notificationId);
           const t = now();
           const workout = createWorkout(routine, sessionId, catalog, { id: uid('w'), now: t });
           const machine = reduce(createMachine(workout), { type: 'START', now: t });
@@ -203,10 +211,14 @@ export function createAppStore(storage: StateStorage) {
         saveWorkout: () => {
           const { active, history } = get();
           if (!active || active.machine.phase.type !== 'finished') return;
+          cancelPending(active.notificationId);
           set({ history: [...history, active.machine.workout], active: null });
         },
 
-        discardWorkout: () => set({ active: null }),
+        discardWorkout: () => {
+          cancelPending(get().active?.notificationId);
+          set({ active: null });
+        },
 
         upsertBodyMetric: (date, patch) => {
           const metrics = get().bodyMetrics;

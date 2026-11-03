@@ -33,7 +33,7 @@ const ORG_HINT: Record<Organization, string> = {
   free: 'Sesiones con el nombre que quieras.',
 };
 
-export function RoutineEditorScreen(): ReactElement {
+export function RoutineEditorScreen(): ReactElement | null {
   const draft = useApp((s) => s.draft);
   const update = useApp((s) => s.updateDraft);
   const save = useApp((s) => s.saveDraft);
@@ -41,8 +41,9 @@ export function RoutineEditorScreen(): ReactElement {
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [toDelete, setToDelete] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState(false);
 
-  if (!draft) return <Redirect href="/rutinas" />;
+  if (!draft) return leaving ? null : <Redirect href="/rutinas" />;
   const r = draft.routine;
   const errorAt = (path: string) => errors.find((e) => e.path === path)?.message;
   const sessionHasError = (i: number) => errors.some((e) => e.path.startsWith(`sessions.${i}.`));
@@ -50,7 +51,11 @@ export function RoutineEditorScreen(): ReactElement {
   const onSave = () => {
     const e = save();
     setErrors(e);
-    if (e.length === 0) router.replace('/rutinas');
+    if (e.length === 0) {
+      setLeaving(true);
+      if (router.canGoBack()) router.back();
+      else router.replace('/rutinas');
+    }
   };
 
   return (
@@ -187,8 +192,10 @@ export function RoutineEditorScreen(): ReactElement {
         onCancel={() => setConfirmDiscard(false)}
         onConfirm={() => {
           setConfirmDiscard(false);
+          setLeaving(true);
           discard();
-          router.replace('/rutinas');
+          if (router.canGoBack()) router.back();
+          else router.replace('/rutinas');
         }}
       />
       <ConfirmDialog

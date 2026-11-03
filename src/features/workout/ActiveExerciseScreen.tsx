@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useState, type ReactElement } from 'react';
 import {
   Modal,
@@ -44,7 +44,6 @@ function ActiveExercise({ pos }: { pos: SetPosition }): ReactElement {
   const discard = useApp((s) => s.discardWorkout);
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const clock = useNow(1000);
 
   const ex = machine.workout.exercises[pos.exerciseIndex]!;
   const current = ex.sets[pos.setIndex]!;
@@ -54,6 +53,8 @@ function ActiveExercise({ pos }: { pos: SetPosition }): ReactElement {
   const [weight, setWeight] = useState<number | undefined>(source.weightKg);
   const [reps, setReps] = useState<number>(source.reps);
   const [menu, setMenu] = useState(false);
+  // Values of the current set kept while a completed set is being edited.
+  const [pending, setPending] = useState<{ weight: number | undefined; reps: number } | null>(null);
 
   const last = lastPerformance(history, ex.exerciseId);
   const lastTop = last ? topSet(last.sets) : null;
@@ -64,14 +65,16 @@ function ActiveExercise({ pos }: { pos: SetPosition }): ReactElement {
 
   const startEdit = (i: number) => {
     const s = ex.sets[i]!;
+    if (editing === null) setPending({ weight, reps });
     setEditing(i);
     setWeight(s.weightKg);
     setReps(s.reps);
   };
   const stopEdit = () => {
     setEditing(null);
-    setWeight(current.weightKg);
-    setReps(current.reps);
+    setWeight(pending ? pending.weight : current.weightKg);
+    setReps(pending ? pending.reps : current.reps);
+    setPending(null);
   };
 
   const onDone = () => {
@@ -86,7 +89,7 @@ function ActiveExercise({ pos }: { pos: SetPosition }): ReactElement {
       stopEdit();
       return;
     }
-    dispatch({ type: 'COMPLETE_SET', reps, weightKg: weight ?? null, now: now() });
+    dispatch({ type: 'COMPLETE_SET', reps, weightKg: weight ?? null, now: now(), at: pos });
   };
 
   return (
@@ -102,9 +105,7 @@ function ActiveExercise({ pos }: { pos: SetPosition }): ReactElement {
         <Label color={colors.text} style={styles.flex} testID="exercise-counter">
           Ejercicio {ordinal}/{total}
         </Label>
-        <Text style={styles.elapsed} accessibilityLabel="Tiempo de sesión">
-          {formatElapsed(clock - machine.workout.startedAt)}
-        </Text>
+        <Elapsed startedAt={machine.workout.startedAt} />
       </View>
 
       <ScrollView style={styles.flex} contentContainerStyle={styles.scroll}>
@@ -234,11 +235,20 @@ function ActiveExercise({ pos }: { pos: SetPosition }): ReactElement {
         }}
         onDiscard={() => {
           setMenu(false);
-          discard();
-          router.replace('/');
+          discard(); // the session controller navigates home
         }}
       />
     </View>
+  );
+}
+
+/** Session clock in its own component so the 1 s tick does not re-render the whole screen. */
+function Elapsed({ startedAt }: { startedAt: number }) {
+  const t = useNow(1000);
+  return (
+    <Text style={styles.elapsed} accessibilityLabel="Tiempo de sesión">
+      {formatElapsed(t - startedAt)}
+    </Text>
   );
 }
 
@@ -376,7 +386,7 @@ const styles = StyleSheet.create({
   },
   sets: { borderTopWidth: 1, borderTopColor: colors.border },
   setRow: {
-    minHeight: 48,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,

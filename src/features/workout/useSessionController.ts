@@ -68,7 +68,14 @@ export function useSessionController(): void {
   useEffect(() => {
     const prev = prevPhase.current;
     prevPhase.current = phase;
-    if (prev?.type === 'resting' && phase?.type === 'performing' && now() >= prev.endsAt - 250) {
+    const t = now();
+    // Only when it ends on screen (not skipped, and not long after, e.g. back from background).
+    if (
+      prev?.type === 'resting' &&
+      phase?.type === 'performing' &&
+      t >= prev.endsAt - 250 &&
+      t - prev.endsAt < 1500
+    ) {
       if (settings.haptics) restEndFeedback();
       if (settings.sound) playRestEnd();
     }
@@ -92,14 +99,14 @@ export function useSessionController(): void {
     if (stored?.startsWith(`${endsAt}:`)) return;
     let cancelled = false;
     if (stored) void cancelRestEnd(stored.split(':')[1] ?? null);
-    void scheduleRestEnd(endsAt, `Siguiente: ${nextName}`).then((id) => {
+    void scheduleRestEnd(endsAt, `Siguiente: ${nextName}`, settings.sound).then((id) => {
       if (cancelled) void cancelRestEnd(id);
       else setNotificationId(id ? `${endsAt}:${id}` : null);
     });
     return () => {
       cancelled = true;
     };
-  }, [endsAt, stored, nextName, setNotificationId]);
+  }, [endsAt, stored, nextName, setNotificationId, settings.sound]);
 
   // 5. Keep the screen on during the session.
   useEffect(() => {

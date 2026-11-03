@@ -105,11 +105,23 @@ const phaseSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('finished'), finishedAt: num }),
 ]);
 
-export const activeSchema = z.object({
-  machine: z.object({ workout: workoutSchema, phase: phaseSchema }),
-  transitionTo: int.min(0).nullable(),
-  notificationId: z.string().max(200).nullable(),
-});
+export const activeSchema = z
+  .object({
+    machine: z.object({ workout: workoutSchema, phase: phaseSchema }),
+    transitionTo: int.min(0).nullable(),
+    notificationId: z.string().max(200).nullable(),
+  })
+  .superRefine((a, ctx) => {
+    // Positions must point at an existing set, or the engine would read out of bounds.
+    const { phase, workout } = a.machine;
+    const pos = phase.type === 'performing' ? phase : phase.type === 'resting' ? phase.next : null;
+    const ok = (p: { exerciseIndex: number; setIndex: number }) =>
+      p.setIndex < (workout.exercises[p.exerciseIndex]?.sets.length ?? 0);
+    if (pos && !ok(pos)) ctx.addIssue({ code: 'custom', message: 'position out of range' });
+    if (a.transitionTo !== null && a.transitionTo >= workout.exercises.length) {
+      ctx.addIssue({ code: 'custom', message: 'transition out of range' });
+    }
+  });
 
 const settingsSchema = z.object({
   keepAwake: z.boolean(),
@@ -139,9 +151,12 @@ export interface PersistedState {
   active: ActiveWorkout | null;
 }
 
+/** Upper bound of stored records per collection (keeps a corrupted store from exploding). */
+export const MAX_RECORDS = 5000;
+
 function arrayOf<T>(schema: z.ZodType<T>, value: unknown): T[] | undefined {
   if (!Array.isArray(value)) return undefined;
-  return value.flatMap((v) => {
+  return value.slice(0, MAX_RECORDS).flatMap((v) => {
     const r = schema.safeParse(v);
     return r.success ? [r.data] : [];
   });

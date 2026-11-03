@@ -4,6 +4,11 @@ import { addExercise, updateExercise } from '@/domain/routineEditing';
 
 import { createAppStore, memoryStorage, STORAGE_KEY, transitionTarget } from './appStore';
 
+jest.mock('@/services/notifications', () => ({
+  cancelRestEnd: jest.fn(async () => undefined),
+  scheduleRestEnd: jest.fn(async () => null),
+}));
+
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(),
   setItem: jest.fn(),
@@ -179,6 +184,27 @@ describe('app store', () => {
       type: 'resting',
       endsAt: t + 90_000,
     });
+  });
+
+  it('cancels the pending rest notification when the workout is discarded', () => {
+    const { cancelRestEnd } = jest.requireMock('@/services/notifications') as {
+      cancelRestEnd: jest.Mock;
+    };
+    const store = createAppStore(memoryStorage());
+    const sessionId = buildChestRoutine(store);
+    store.getState().saveDraft();
+    store.getState().startWorkout(store.getState().routines[0]!.id, sessionId);
+    store.getState().setNotificationId('123:abc');
+    store.getState().discardWorkout();
+    expect(cancelRestEnd).toHaveBeenCalledWith('abc');
+  });
+
+  it('«Nueva rutina» resumes a pending new draft instead of wiping it', () => {
+    const store = createAppStore(memoryStorage());
+    store.getState().openDraft(null);
+    store.getState().updateDraft((r) => ({ ...r, name: 'A medias' }));
+    store.getState().openDraft(null);
+    expect(store.getState().draft!.routine.name).toBe('A medias');
   });
 
   it('upserts one body metric per day', () => {

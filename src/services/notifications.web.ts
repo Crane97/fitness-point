@@ -1,5 +1,9 @@
 /** Web: no local notifications (the countdown is visible on screen). */
-export async function scheduleRestEnd(_endsAt: number, _body: string): Promise<string | null> {
+export async function scheduleRestEnd(
+  _endsAt: number,
+  _body: string,
+  _sound?: boolean,
+): Promise<string | null> {
   return null;
 }
 

@@ -19,13 +19,11 @@ export function RestScreen(): ReactElement | null {
   const dispatch = useApp((s) => s.dispatch);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const t = useNow(250);
   const phase = active?.machine.phase;
   if (!active || phase?.type !== 'resting') return null;
 
   const nextEx = active.machine.workout.exercises[phase.next.exerciseIndex]!;
   const nextSet = nextEx.sets[phase.next.setIndex]!;
-  const left = remainingSeconds(phase.endsAt, t);
   const clockSize = Math.min(150, Math.floor((width - space.lg * 2) / 2.6));
 
   return (
@@ -42,19 +40,7 @@ export function RestScreen(): ReactElement | null {
       </View>
 
       <View style={styles.center}>
-        <Text
-          testID="rest-countdown"
-          accessibilityRole="timer"
-          accessibilityLabel={`Quedan ${left} segundos`}
-          style={[styles.clock, { fontSize: clockSize, lineHeight: clockSize * 1.05 }]}
-          numberOfLines={1}
-        >
-          {formatClock(left)}
-        </Text>
-        <ProgressBar
-          progress={restProgress(phase.startedAt, phase.endsAt, t)}
-          testID="rest-progress"
-        />
+        <Countdown startedAt={phase.startedAt} endsAt={phase.endsAt} size={clockSize} />
         <View style={styles.adjust}>
           <Button
             label="−15 s"
@@ -103,6 +89,34 @@ export function RestScreen(): ReactElement | null {
         />
       </View>
     </View>
+  );
+}
+
+/** Only this part re-renders on every tick; time is always derived from endsAt. */
+function Countdown({
+  startedAt,
+  endsAt,
+  size,
+}: {
+  startedAt: number;
+  endsAt: number;
+  size: number;
+}) {
+  const t = useNow(250);
+  const left = remainingSeconds(endsAt, t);
+  return (
+    <>
+      <Text
+        testID="rest-countdown"
+        accessibilityRole="timer"
+        accessibilityLabel={`Quedan ${left} segundos`}
+        style={[styles.clock, { fontSize: size, lineHeight: size * 1.05 }]}
+        numberOfLines={1}
+      >
+        {formatClock(left)}
+      </Text>
+      <ProgressBar progress={restProgress(startedAt, endsAt, t)} testID="rest-progress" />
+    </>
   );
 }
 
